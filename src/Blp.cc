@@ -29,7 +29,7 @@
 #include "Image.h"
 #include "Resize.h"
 
-#ifndef HAVE_BLP
+#ifdef HAVE_BLP
 #include <sstream>
 #include <vector>
 #include <stdlib.h>
@@ -213,7 +213,7 @@ bool writeToJpeg(PixelArray *input, buffer &output, int Width, int Height, int Q
 {
     int RealSize;
     int DummySize;
-    int line;
+    uint32_t line;
     buffer TempBuffer;
     JSAMPROW Pointer[1];
     jpeg_compress_struct Info;
@@ -272,7 +272,7 @@ bool readJpeg(const buffer& input, PixelArray *output, unsigned int Width, unsig
 		return false;
 	}
 
-	int line;
+	uint32_t line;
 	JSAMPROW row_pointer[1];
 	while((line = Info.output_scanline) < Height){
 		row_pointer[0] = (JSAMPROW) output->data[line];
@@ -304,7 +304,6 @@ bool LoadUncompressed(BLP_HEADER &Header, const ImageData *input, PixelArray *ou
     rgba const* Palette = reinterpret_cast<rgba const*>(input->data + sizeof(BLP_HEADER));
     uint8_t const* SourcePixel = reinterpret_cast<uint8_t const*>(input->data + Header.Offset[0]);
     int Size = Header.Width * Header.Height;
-    Pixel* TargetPixel = *output->data;
     uint8_t const* SourceAlpha = SourcePixel + Size;
     switch (Header.AlphaBits)
     {
@@ -312,41 +311,49 @@ bool LoadUncompressed(BLP_HEADER &Header, const ImageData *input, PixelArray *ou
     case 0:
     	for (int i = 0; i < Size; i++)
     	{
-    		TargetPixel[i].R = Palette[SourcePixel[i]].r;
-            TargetPixel[i].G = Palette[SourcePixel[i]].g;
-            TargetPixel[i].B = Palette[SourcePixel[i]].b;
-    		TargetPixel[i].A = 255;
+            int y = i / Header.Width;
+            int x = i % Header.Width;
+    		output->data[y][x].R = Palette[SourcePixel[i]].r;
+            output->data[y][x].G = Palette[SourcePixel[i]].g;
+            output->data[y][x].B = Palette[SourcePixel[i]].b;
+    		output->data[y][x].A = 255;
     	}
     	break;
     case 1:
     	for (int i = 0; i < Size; i++)
     	{
-    		TargetPixel[i].R = Palette[SourcePixel[i]].r;
-            TargetPixel[i].G = Palette[SourcePixel[i]].g;
-            TargetPixel[i].B = Palette[SourcePixel[i]].b;
-    		TargetPixel[i].A = (SourceAlpha[i >> 3] & (1 << (i & 7))) ? 1 : 0;
+            int y = i / Header.Width;
+            int x = i % Header.Width;
+    		output->data[y][x].R = Palette[SourcePixel[i]].r;
+            output->data[y][x].G = Palette[SourcePixel[i]].g;
+            output->data[y][x].B = Palette[SourcePixel[i]].b;
+    		output->data[y][x].A = (SourceAlpha[i >> 3] & (1 << (i & 7))) ? 1 : 0;
     	}
     	break;
     case 4:
     	for (int i = 0; i < Size; i++)
     	{
-    		TargetPixel[i].R = Palette[SourcePixel[i]].r;
-            TargetPixel[i].G = Palette[SourcePixel[i]].g;
-            TargetPixel[i].B = Palette[SourcePixel[i]].b;
+            int y = i / Header.Width;
+            int x = i % Header.Width;
+    		output->data[y][x].R = Palette[SourcePixel[i]].r;
+            output->data[y][x].G = Palette[SourcePixel[i]].g;
+            output->data[y][x].B = Palette[SourcePixel[i]].b;
     		switch (i & 1)
     		{
-    		case 0: TargetPixel[i].A = SourceAlpha[i >> 1] & 0x0F; break;
-    		case 1: TargetPixel[i].A = (SourceAlpha[i >> 1] & 0xF0) >> 4; break;
+    		case 0: output->data[y][x].A = SourceAlpha[i >> 1] & 0x0F; break;
+    		case 1: output->data[y][x].A = (SourceAlpha[i >> 1] & 0xF0) >> 4; break;
     		}
     	}
     	break;
     case 8:
     	for (int i = 0; i < Size; i++)
     	{
-    		TargetPixel[i].R = Palette[SourcePixel[i]].r;
-            TargetPixel[i].G = Palette[SourcePixel[i]].g;
-            TargetPixel[i].B = Palette[SourcePixel[i]].b;
-    		TargetPixel[i].A = SourceAlpha[i];
+            int y = i / Header.Width;
+            int x = i % Header.Width;
+    		output->data[y][x].R = Palette[SourcePixel[i]].r;
+            output->data[y][x].G = Palette[SourcePixel[i]].g;
+            output->data[y][x].B = Palette[SourcePixel[i]].b;
+    		output->data[y][x].A = SourceAlpha[i];
     	}
     	break;
     }
@@ -383,7 +390,6 @@ DECODER_FN(Blp)
         break;
     }
 
-    // TODO
     return SUCCESS;
 }
 
@@ -391,11 +397,7 @@ ENCODER_FN(Blp)
 {
 
     int32_t i;
-    int32_t X;
-    int32_t Y;
     int32_t Size;
-    int32_t Index;
-    int32_t BufferIndex;
     int32_t TotalSize;
     int32_t NrOfMipMaps;
     int32_t TextureSize;

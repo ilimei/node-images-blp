@@ -58,9 +58,9 @@ images("input.gif")
     .save("output_new_gif.blp");
 
 
-images("input.gif")
+images("input.blp")
     .size(200)
-    .save("output_old_gif.blp");
+    .save("output_old_gif.png");
 
-images('logo.png')
-    .save('output_logo.blp');
+images('uncompressed.blp')
+    .save('uncompressed.png');
